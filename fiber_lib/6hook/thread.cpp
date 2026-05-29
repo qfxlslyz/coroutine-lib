@@ -89,5 +89,4 @@ void* Thread::run(void* arg)
     return 0;
 }
 
-} 
-
+}  // namespace sylar

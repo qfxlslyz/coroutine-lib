@@ -12,8 +12,8 @@ namespace sylar
 class Semaphore 
 {
 private:
-    std::mutex mtx;                
-    std::condition_variable cv;    
+    std::mutex mtx_;                
+    std::condition_variable cv_;    
     int count;                   
 
 public:
@@ -23,9 +23,9 @@ public:
     // P操作
     void wait() 
     {
-        std::unique_lock<std::mutex> lock(mtx);
+        std::unique_lock<std::mutex> lock(mtx_);
         while (count == 0) { 
-            cv.wait(lock); // wait for signals
+            cv_.wait(lock); // wait for signals
         }
         count--;
     }
@@ -33,9 +33,9 @@ public:
     // V操作
     void signal() 
     {
-        std::unique_lock<std::mutex> lock(mtx);
+        std::unique_lock<std::mutex> lock(mtx_);
         count++;
-        cv.notify_one();  // signal
+        cv_.notify_one();  // signal
     }
 };
 
@@ -77,32 +77,6 @@ private:
     Semaphore m_semaphore;
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}
-
-
+}  // namespace sylar
 
 #endif
