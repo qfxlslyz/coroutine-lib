@@ -11,43 +11,41 @@ namespace sylar
 // 用于线程方法间的同步
 class Semaphore 
 {
-private:
-    std::mutex mtx_;                
-    std::condition_variable cv_;    
-    int count;                   
-
 public:
     // 信号量初始化为0
-    explicit Semaphore(int count_ = 0) : count(count_) {}
+    explicit Semaphore(int count = 0) : count_(count) {}
     
     // P操作
     void wait() 
     {
         std::unique_lock<std::mutex> lock(mtx_);
-        while (count == 0) { 
-            cv_.wait(lock); // wait for signals
-        }
-        count--;
+        cv_.wait(lock, [this] { return count_ > 0; });
+        --count_;
     }
 
     // V操作
     void signal() 
     {
         std::unique_lock<std::mutex> lock(mtx_);
-        count++;
+        ++count_;
         cv_.notify_one();  // signal
     }
+
+private:
+    std::mutex mtx_;                
+    std::condition_variable cv_;    
+    int count_; 
 };
 
-// 一共两种线程: 1 由系统自动创建的主线程 2 由Thread类创建的线程 
+// 一共两种线程: 1、由系统自动创建的主线程；2、由Thread类创建的线程 
 class Thread 
 {
 public:
     Thread(std::function<void()> cb, const std::string& name);
     ~Thread();
 
-    pid_t getId() const { return m_id; }
-    const std::string& getName() const { return m_name; }
+    pid_t getId() const { return id_; }
+    const std::string& getName() const { return name_; }
 
     void join();
 
@@ -67,14 +65,14 @@ private:
     static void* run(void* arg);
 
 private:
-    pid_t m_id = -1;
-    pthread_t m_thread = 0;
+    pid_t id_ = -1;
+    pthread_t thread_ = 0;
 
     // 线程需要运行的函数
-    std::function<void()> m_cb;
-    std::string m_name;
+    std::function<void()> cb_;
+    std::string name_;
     
-    Semaphore m_semaphore;
+    Semaphore semaphore_;
 };
 
 }  // namespace sylar

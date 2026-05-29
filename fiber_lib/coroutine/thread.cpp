@@ -29,44 +29,43 @@ void Thread::SetName(const std::string &name)
 {
     if (t_thread) 
     {
-        t_thread->m_name = name;
+        t_thread->name_ = name;
     }
     t_thread_name = name;
 }
 
-Thread::Thread(std::function<void()> cb, const std::string &name): 
-m_cb(cb), m_name(name) 
+Thread::Thread(std::function<void()> cb, const std::string &name): cb_(cb), name_(name) 
 {
-    int rt = pthread_create(&m_thread, nullptr, &Thread::run, this);
+    int rt = pthread_create(&thread_, nullptr, &Thread::run, this);
     if (rt) 
     {
         std::cerr << "pthread_create thread fail, rt=" << rt << " name=" << name;
         throw std::logic_error("pthread_create error");
     }
     // 等待线程函数完成初始化
-    m_semaphore.wait();
+    semaphore_.wait();
 }
 
 Thread::~Thread() 
 {
-    if (m_thread) 
+    if (thread_) 
     {
-        pthread_detach(m_thread);
-        m_thread = 0;
+        pthread_detach(thread_);
+        thread_ = 0;
     }
 }
 
 void Thread::join() 
 {
-    if (m_thread) 
+    if (thread_) 
     {
-        int rt = pthread_join(m_thread, nullptr);
+        int rt = pthread_join(thread_, nullptr);
         if (rt) 
         {
-            std::cerr << "pthread_join failed, rt = " << rt << ", name = " << m_name << std::endl;
+            std::cerr << "pthread_join failed, rt = " << rt << ", name = " << name_ << std::endl;
             throw std::logic_error("pthread_join error");
         }
-        m_thread = 0;
+        thread_ = 0;
     }
 }
 
@@ -75,15 +74,15 @@ void* Thread::run(void* arg)
     Thread* thread = (Thread*)arg;
 
     t_thread       = thread;
-    t_thread_name  = thread->m_name;
-    thread->m_id   = GetThreadId();
-    pthread_setname_np(pthread_self(), thread->m_name.substr(0, 15).c_str());
+    t_thread_name  = thread->name_;
+    thread->id_   = GetThreadId();
+    pthread_setname_np(pthread_self(), thread->name_.substr(0, 15).c_str());
 
     std::function<void()> cb;
-    cb.swap(thread->m_cb); // swap -> 可以减少m_cb中只能指针的引用计数
+    cb.swap(thread->cb_); // swap -> 可以减少cb_中智能指针的引用计数
     
     // 初始化完成
-    thread->m_semaphore.signal();
+    thread->semaphore_.signal();
 
     cb();
     return 0;
