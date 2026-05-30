@@ -61,7 +61,7 @@ public:
     static void SetName(const std::string& name);
 
 private:
-	// 线程函数
+	// 线程函数，尝试深入理解run函数设置为private、static的原因
     static void* run(void* arg);
 
 private:

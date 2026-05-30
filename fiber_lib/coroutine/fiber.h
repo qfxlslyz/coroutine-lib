@@ -12,6 +12,7 @@
 
 namespace sylar {
 
+// 协程状态切换：READY <——> RUNNING ——> TERM
 class Fiber : public std::enable_shared_from_this<Fiber>
 {
 public:
@@ -39,8 +40,8 @@ public:
 	// 任务线程让出执行权
 	void yield();
 
-	uint64_t getId() const {return m_id;}
-	State getState() const {return m_state;}
+	uint64_t getId() const {return id_;}
+	State getState() const {return state_;}
 
 public:
 	// 设置当前运行的协程
@@ -60,25 +61,25 @@ public:
 
 private:
 	// id
-	uint64_t m_id = 0;
+	uint64_t id_ = 0;
 	// 栈大小
-	uint32_t m_stacksize = 0;
+	uint32_t stacksize_ = 0;
 	// 协程状态
-	State m_state = READY;
+	State state_ = READY;
 	// 协程上下文
-	ucontext_t m_ctx;
+	ucontext_t ctx_;
 	// 协程栈指针
-	void* m_stack = nullptr;
+	void* stack_ = nullptr;
 	// 协程函数
-	std::function<void()> m_cb;
+	std::function<void()> cb_;
 	// 是否让出执行权交给调度协程
-	bool m_runInScheduler;
+	bool runInScheduler_;
 
 public:
-	std::mutex m_mutex;
+	std::mutex mtx_;
 };
 
-}
+}  // namespace sylar
 
 #endif
 

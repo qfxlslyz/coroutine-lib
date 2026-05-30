@@ -129,7 +129,7 @@ void Scheduler::run()
 		if(task.fiber)
 		{
 			{					
-				std::lock_guard<std::mutex> lock(task.fiber->m_mutex);
+				std::lock_guard<std::mutex> lock(task.fiber->mtx_);
 				if(task.fiber->getState()!=Fiber::TERM)
 				{
 					task.fiber->resume();	
@@ -142,7 +142,7 @@ void Scheduler::run()
 		{
 			std::shared_ptr<Fiber> cb_fiber = std::make_shared<Fiber>(task.cb);
 			{
-				std::lock_guard<std::mutex> lock(cb_fiber->m_mutex);
+				std::lock_guard<std::mutex> lock(cb_fiber->mtx_);
 				cb_fiber->resume();			
 			}
 			m_activeThreadCount--;
