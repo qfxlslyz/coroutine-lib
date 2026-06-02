@@ -17,13 +17,13 @@ void Scheduler::SetThis()
 }
 
 Scheduler::Scheduler(size_t threads, bool use_caller, const std::string &name):
-m_useCaller(use_caller), m_name(name)
+useCaller_(use_caller), name_(name)
 {
 	assert(threads>0 && Scheduler::GetThis()==nullptr);
 
 	SetThis();
 
-	Thread::SetName(m_name);
+	Thread::SetName(name_);
 
 	// 使用主线程当作工作线程
 	if(use_caller)
@@ -34,14 +34,14 @@ m_useCaller(use_caller), m_name(name)
 		Fiber::GetThis();
 
 		// 创建调度协程
-		m_schedulerFiber.reset(new Fiber(std::bind(&Scheduler::run, this), 0, false)); // false -> 该调度协程退出后将返回主协程
-		Fiber::SetSchedulerFiber(m_schedulerFiber.get());
+		schedulerFiber_.reset(new Fiber(std::bind(&Scheduler::run, this), 0, false)); // false -> 该调度协程退出后将返回主协程
+		Fiber::SetSchedulerFiber(schedulerFiber_.get());
 		
-		m_rootThread = Thread::GetThreadId();
-		m_threadIds.push_back(m_rootThread);
+		rootThread_ = Thread::GetThreadId();
+		threadIds_.push_back(rootThread_);
 	}
 
-	m_threadCount = threads;
+	threadCount_ = threads;
 	if(debug) std::cout << "Scheduler::Scheduler() success\n";
 }
 
@@ -57,19 +57,19 @@ Scheduler::~Scheduler()
 
 void Scheduler::start()
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
-	if(m_stopping)
+	std::lock_guard<std::mutex> lock(mtx_);
+	if(stopping_)
 	{
 		std::cerr << "Scheduler is stopped" << std::endl;
 		return;
 	}
 
-	assert(m_threads.empty());
-	m_threads.resize(m_threadCount);
-	for(size_t i=0;i<m_threadCount;i++)
+	assert(threads_.empty());
+	threads_.resize(threadCount_);
+	for(size_t i=0;i<threadCount_;i++)
 	{
-		m_threads[i].reset(new Thread(std::bind(&Scheduler::run, this), m_name + "_" + std::to_string(i)));
-		m_threadIds.push_back(m_threads[i]->getId());
+		threads_[i].reset(new Thread(std::bind(&Scheduler::run, this), name_ + "_" + std::to_string(i)));
+		threadIds_.push_back(threads_[i]->getId());
 	}
 	if(debug) std::cout << "Scheduler::start() success\n";
 }
@@ -84,7 +84,7 @@ void Scheduler::run()
 	SetThis();
 
 	// 运行在新创建的线程 -> 需要创建主协程
-	if(thread_id != m_rootThread)
+	if(thread_id != rootThread_)
 	{
 		Fiber::GetThis();
 	}
@@ -98,10 +98,10 @@ void Scheduler::run()
 		bool tickle_me = false;
 
 		{
-			std::lock_guard<std::mutex> lock(m_mutex);
-			auto it = m_tasks.begin();
+			std::lock_guard<std::mutex> lock(mtx_);
+			auto it = tasks_.begin();
 			// 1 遍历任务队列
-			while(it!=m_tasks.end())
+			while(it!=tasks_.end())
 			{
 				if(it->thread!=-1&&it->thread!=thread_id)
 				{
@@ -113,11 +113,11 @@ void Scheduler::run()
 				// 2 取出任务
 				assert(it->fiber||it->cb);
 				task = *it;
-				m_tasks.erase(it); 
-				m_activeThreadCount++;
+				tasks_.erase(it); 
+				activeThreadCount_++;
 				break;
 			}	
-			tickle_me = tickle_me || (it != m_tasks.end());
+			tickle_me = tickle_me || (it != tasks_.end());
 		}
 
 		if(tickle_me)
@@ -135,7 +135,7 @@ void Scheduler::run()
 					task.fiber->resume();	
 				}
 			}
-			m_activeThreadCount--;
+			activeThreadCount_--;
 			task.reset();
 		}
 		else if(task.cb)
@@ -145,7 +145,7 @@ void Scheduler::run()
 				std::lock_guard<std::mutex> lock(cb_fiber->mtx_);
 				cb_fiber->resume();			
 			}
-			m_activeThreadCount--;
+			activeThreadCount_--;
 			task.reset();	
 		}
 		// 4 无任务 -> 执行空闲协程
@@ -157,9 +157,9 @@ void Scheduler::run()
             	if(debug) std::cout << "Schedule::run() ends in thread: " << thread_id << std::endl;
                 break;
             }
-			m_idleThreadCount++;
+			idleThreadCount_++;
 			idle_fiber->resume();				
-			m_idleThreadCount--;
+			idleThreadCount_--;
 		}
 	}
 	
@@ -174,9 +174,9 @@ void Scheduler::stop()
 		return;
 	}
 
-	m_stopping = true;	
+	stopping_ = true;	
 
-    if (m_useCaller) 
+    if (useCaller_) 
     {
         assert(GetThis() == this);
     } 
@@ -185,26 +185,26 @@ void Scheduler::stop()
         assert(GetThis() != this);
     }
 	
-	for (size_t i = 0; i < m_threadCount; i++) 
+	for (size_t i = 0; i < threadCount_; i++) 
 	{
 		tickle();
 	}
 
-	if (m_schedulerFiber) 
+	if (schedulerFiber_) 
 	{
 		tickle();
 	}
 
-	if(m_schedulerFiber)
+	if(schedulerFiber_)
 	{
-		m_schedulerFiber->resume();
-		if(debug) std::cout << "m_schedulerFiber ends in thread:" << Thread::GetThreadId() << std::endl;
+		schedulerFiber_->resume();
+		if(debug) std::cout << "schedulerFiber_ ends in thread:" << Thread::GetThreadId() << std::endl;
 	}
 
 	std::vector<std::shared_ptr<Thread>> thrs;
 	{
-		std::lock_guard<std::mutex> lock(m_mutex);
-		thrs.swap(m_threads);
+		std::lock_guard<std::mutex> lock(mtx_);
+		thrs.swap(threads_);
 	}
 
 	for(auto &i : thrs)
@@ -230,8 +230,8 @@ void Scheduler::idle()
 
 bool Scheduler::stopping() 
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    return m_stopping && m_tasks.empty() && m_activeThreadCount == 0;
+    std::lock_guard<std::mutex> lock(mtx_);
+    return stopping_ && tasks_.empty() && activeThreadCount_ == 0;
 }
 
 

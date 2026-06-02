@@ -16,7 +16,7 @@ public:
 	Scheduler(size_t threads = 1, bool use_caller = true, const std::string& name="Scheduler");
 	virtual ~Scheduler();
 	
-	const std::string& getName() const {return m_name;}
+	const std::string& getName() const {return name_;}
 
 public:	
 	// 获取正在运行的调度器
@@ -33,14 +33,14 @@ public:
     {
     	bool need_tickle;
     	{
-    		std::lock_guard<std::mutex> lock(m_mutex);
+    		std::lock_guard<std::mutex> lock(mtx_);
     		// empty ->  all thread is idle -> need to be waken up
-    		need_tickle = m_tasks.empty();
+    		need_tickle = tasks_.empty();
 	        
 	        ScheduleTask task(fc, thread);
 	        if (task.fiber || task.cb) 
 	        {
-	            m_tasks.push_back(task);
+	            tasks_.push_back(task);
 	        }
     	}
     	
@@ -67,7 +67,7 @@ protected:
 	// 是否可以关闭
 	virtual bool stopping();
 
-	bool hasIdleThreads() {return m_idleThreadCount>0;}
+	bool hasIdleThreads() {return idleThreadCount_>0;}
 
 private:
 	// 任务
@@ -117,32 +117,32 @@ private:
 	};
 
 private:
-	std::string m_name;
+	std::string name_;
 	// 互斥锁 -> 保护任务队列
-	std::mutex m_mutex;
+	std::mutex mtx_;
 	// 线程池
-	std::vector<std::shared_ptr<Thread>> m_threads;
+	std::vector<std::shared_ptr<Thread>> threads_;
 	// 任务队列
-	std::vector<ScheduleTask> m_tasks;
+	std::vector<ScheduleTask> tasks_;
 	// 存储工作线程的线程id
-	std::vector<int> m_threadIds;
+	std::vector<int> threadIds_;
 	// 需要额外创建的线程数
-	size_t m_threadCount = 0;
+	size_t threadCount_ = 0;
 	// 活跃线程数
-	std::atomic<size_t> m_activeThreadCount = {0};
+	std::atomic<size_t> activeThreadCount_ = {0};
 	// 空闲线程数
-	std::atomic<size_t> m_idleThreadCount = {0};
+	std::atomic<size_t> idleThreadCount_ = {0};
 
 	// 主线程是否用作工作线程
-	bool m_useCaller;
+	bool useCaller_;
 	// 如果是 -> 需要额外创建调度协程
-	std::shared_ptr<Fiber> m_schedulerFiber;
+	std::shared_ptr<Fiber> schedulerFiber_;
 	// 如果是 -> 记录主线程的线程id
-	int m_rootThread = -1;
+	int rootThread_ = -1;
 	// 是否正在关闭
-	bool m_stopping = false;	
+	bool stopping_ = false;	
 };
 
-}
+}  // namespace sylar
 
 #endif
