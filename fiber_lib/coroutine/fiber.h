@@ -40,8 +40,8 @@ public:
 	// 任务线程让出执行权
 	void yield();
 
-	uint64_t getId() const {return id_;}
-	State getState() const {return state_;}
+	uint64_t getId() const { return id_; }
+	State getState() const { return state_; }
 
 public:
 	// 设置当前运行的协程
