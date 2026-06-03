@@ -14,6 +14,9 @@ class Scheduler
 {
 public:
 	Scheduler(size_t threads = 1, bool use_caller = true, const std::string& name="Scheduler");
+	
+	// 基类析构函数定义为虚函数，确保基类指针删除派生类对象时能正确调用派生类的析构函数，然后再调用基类的析构函数
+	// 只要一个类可能作为基类被继承，它的析构函数就需要声明为虚函数，这是C++的一条基本原则
 	virtual ~Scheduler();
 	
 	const std::string& getName() const {return name_;}

@@ -16,8 +16,8 @@ void Scheduler::SetThis()
 	t_scheduler = this;
 }
 
-Scheduler::Scheduler(size_t threads, bool use_caller, const std::string &name):
-useCaller_(use_caller), name_(name)
+Scheduler::Scheduler(size_t threads, bool use_caller, const std::string &name)
+	: useCaller_(use_caller), name_(name)
 {
 	assert(threads>0 && Scheduler::GetThis()==nullptr);
 
@@ -28,7 +28,7 @@ useCaller_(use_caller), name_(name)
 	// 使用主线程当作工作线程
 	if(use_caller)
 	{
-		threads --;
+		--threads;
 
 		// 创建主协程
 		Fiber::GetThis();
@@ -185,7 +185,7 @@ void Scheduler::stop()
         assert(GetThis() != this);
     }
 	
-	for (size_t i = 0; i < threadCount_; i++) 
+	for (size_t i = 0; i < threadCount_; ++i) 
 	{
 		tickle();
 	}
@@ -234,5 +234,4 @@ bool Scheduler::stopping()
     return stopping_ && tasks_.empty() && activeThreadCount_ == 0;
 }
 
-
-}
+}  // namespace sylar
